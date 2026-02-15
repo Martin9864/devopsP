@@ -1,0 +1,49 @@
+name: DevOpsP
+
+on:
+  pull_request:
+    branches: ["dev"]
+    types: [closed]
+
+jobs:
+  notify:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Collect info
+        id: info
+        run: |
+          echo "BRANCH=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+          echo "PR_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
+          echo "AUTHOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          echo "MERGED_AT=${{ github.event.pull_request.merged_at }}" >> $GITHUB_OUTPUT
+          echo "REPO=${{ github.repository }}" >> $GITHUB_OUTPUT
+
+      - name: Create report
+        run: |
+          echo "Merge report" > report.txt
+          echo "Branch: ${{ steps.info.outputs.BRANCH }}" >> report.txt
+          echo "Author: ${{ steps.info.outputs.AUTHOR }}" >> report.txt
+          echo "Date: ${{ steps.info.outputs.MERGED_AT }}" >> report.txt
+          echo "PR: ${{ steps.info.outputs.PR_URL }}" >> report.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-report
+          path: report.txt
+
+      - name: Send Telegram
+        run: |
+          MESSAGE="🚀 Merge в dev
+
+Ветка: ${{ steps.info.outputs.BRANCH }}
+Автор: ${{ steps.info.outputs.AUTHOR }}
+Дата: ${{ steps.info.outputs.MERGED_AT }}
+PR: ${{ steps.info.outputs.PR_URL }}
+Repo: https://github.com/${{ steps.info.outputs.REPO }}"
+
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="$MESSAGE"
